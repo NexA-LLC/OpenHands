@@ -35,3 +35,19 @@ Static validation covers actionlint, Bash syntax, and whitespace. No full
 application install, integration test, image/package publication, workflow
 dispatch, or issue/comment automation was run locally. First trusted Mac CI
 remains unverified; revert this PR to restore all previous runner selections.
+
+Mac Python provisioning uses checksum-verified uv 0.13.1 from the pinned v7
+action instead of hosted-image Python installers that assume `/Users/runner`
+or install system frameworks. The original Python version specifications and
+matrices remain. Managed interpreters, seeded pip, venvs, Python bin links,
+download caches, and Poetry configuration stay under `RUNNER_TEMP`; no global
+Python or shell profile is modified. Each job asserts its requested Python
+version and temporary interpreter/base/pip prefixes before running tests.
+
+On the actual buildman6 ARM64 host, Python 3.11.17, 3.12.15, 3.13.16, and 3.14.8
+were provisioned for the declared 3.11–3.14 specifications, with interpreter,
+base prefix and pip paths verified inside a disposable temporary root.
+The full application suites still require current-head CI confirmation.
+
+All PR/Linux fallback runners retain the original setup-python step; managed
+uv provisioning is conditional on the trusted Mac OS/architecture selection.
