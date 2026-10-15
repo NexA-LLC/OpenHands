@@ -51,3 +51,8 @@ The full application suites still require current-head CI confirmation.
 
 All PR/Linux fallback runners retain the original setup-python step; managed
 uv provisioning is conditional on the trusted Mac OS/architecture selection.
+The fallback venv may symlink its Python executable to that hosted interpreter;
+its venv and pip must still be temporary. Resolving the executable and base
+prefix into temporary storage is required only for managed Mac Python. Both
+fallback environment steps passed with a real stdlib venv and an external
+interpreter symlink in an offline probe.

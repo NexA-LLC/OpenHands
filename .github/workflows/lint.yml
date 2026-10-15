@@ -90,11 +90,12 @@ jobs:
           "$venv/bin/python" - <<'PY'
           import os, pathlib, sys, pip
           temporary = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve()
-          assert pathlib.Path(sys.executable).resolve().is_relative_to(temporary)
+          assert pathlib.Path(sys.executable).absolute().is_relative_to(temporary)
           assert pathlib.Path(pip.__file__).resolve().is_relative_to(temporary)
           if os.environ.get("UV_PYTHON"):
               expected = tuple(map(int, os.environ["UV_PYTHON"].split(".")))
               assert sys.version_info[:len(expected)] == expected, sys.version
+              assert pathlib.Path(sys.executable).resolve().is_relative_to(temporary)
               assert pathlib.Path(sys.base_prefix).resolve().is_relative_to(temporary)
           print(sys.version, sys.executable)
           PY
@@ -154,11 +155,12 @@ jobs:
           "$venv/bin/python" - <<'PY'
           import os, pathlib, sys, pip
           temporary = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve()
-          assert pathlib.Path(sys.executable).resolve().is_relative_to(temporary)
+          assert pathlib.Path(sys.executable).absolute().is_relative_to(temporary)
           assert pathlib.Path(pip.__file__).resolve().is_relative_to(temporary)
           if os.environ.get("UV_PYTHON"):
               expected = tuple(map(int, os.environ["UV_PYTHON"].split(".")))
               assert sys.version_info[:len(expected)] == expected, sys.version
+              assert pathlib.Path(sys.executable).resolve().is_relative_to(temporary)
               assert pathlib.Path(sys.base_prefix).resolve().is_relative_to(temporary)
           print(sys.version, sys.executable)
           PY
