@@ -19,11 +19,11 @@ jobs:
   # Run lint on the frontend code
   lint-frontend:
     name: Lint frontend
-    runs-on: blacksmith-4vcpu-ubuntu-2204
+    runs-on: ${{ fromJSON(vars.NEXA_PUBLIC_SELF_HOSTED_RUNNER_ENABLED == 'true' && github.repository == 'NexA-LLC/OpenHands' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && '["self-hosted","macOS","ARM64","buildchan"]' || '["blacksmith-4vcpu-ubuntu-2204"]') }}
     steps:
       - uses: actions/checkout@v4
       - name: Install Node.js 22
-        uses: useblacksmith/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Install dependencies
@@ -34,22 +34,72 @@ jobs:
         run: |
           cd frontend
           npm run lint
-          npm run make-i18n && tsc
+          npm run make-i18n && npx --no-install tsc
           npm run check-translation-completeness
 
   # Run lint on the python code
   lint-python:
     name: Lint python
-    runs-on: blacksmith-4vcpu-ubuntu-2204
+    runs-on: ${{ fromJSON(vars.NEXA_PUBLIC_SELF_HOSTED_RUNNER_ENABLED == 'true' && github.repository == 'NexA-LLC/OpenHands' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && '["self-hosted","macOS","ARM64","buildchan"]' || '["blacksmith-4vcpu-ubuntu-2204"]') }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Set up python
-        uses: useblacksmith/setup-python@v6
+        if: runner.os != 'macOS' || runner.arch != 'ARM64'
+        uses: actions/setup-python@v5
         with:
           python-version: 3.12
           cache: "pip"
+
+      - name: Set up python
+        if: runner.os == 'macOS' && runner.arch == 'ARM64'
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: '0.13.1'
+          checksum: cfe454573412ff7380d15fc7dae5997ab53ffce72fce0a78e91ddbc84001acd2
+          python-version: "3.12"
+          enable-cache: false
+          cache-local-path: ${{ runner.temp }}/uv-cache-${{ github.job }}
+          tool-dir: ${{ runner.temp }}/uv-tools-${{ github.job }}
+          tool-bin-dir: ${{ runner.temp }}/uv-bin-${{ github.job }}
+        env:
+          UV_PYTHON_INSTALL_DIR: ${{ runner.temp }}/uv-python-${{ github.job }}
+
+      - name: Create isolated Python environment
+        run: |
+          venv="$(mktemp -d "$RUNNER_TEMP/openhands-ci.XXXXXX")"
+          export PIP_CACHE_DIR="$RUNNER_TEMP/pip-cache-$GITHUB_JOB"
+          echo "PIP_CACHE_DIR=$PIP_CACHE_DIR" >> "$GITHUB_ENV"
+          if [[ "$RUNNER_OS/$RUNNER_ARCH" == "macOS/ARM64" ]]; then
+            export UV_PYTHON_INSTALL_DIR="$RUNNER_TEMP/uv-python-$GITHUB_JOB"
+            export UV_PYTHON_BIN_DIR="$RUNNER_TEMP/uv-python-bin-$GITHUB_JOB"
+            export UV_CACHE_DIR="$RUNNER_TEMP/uv-cache-$GITHUB_JOB"
+            echo "UV_PYTHON_INSTALL_DIR=$UV_PYTHON_INSTALL_DIR" >> "$GITHUB_ENV"
+            echo "UV_PYTHON_BIN_DIR=$UV_PYTHON_BIN_DIR" >> "$GITHUB_ENV"
+            echo "UV_CACHE_DIR=$UV_CACHE_DIR" >> "$GITHUB_ENV"
+            uv venv --no-config --managed-python --python "$UV_PYTHON" --seed "$venv"
+          else
+            python -m venv "$venv"
+          fi
+          echo "$venv/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=$venv" >> "$GITHUB_ENV"
+          echo "POETRY_CONFIG_DIR=$venv/poetry-config" >> "$GITHUB_ENV"
+          echo "POETRY_CACHE_DIR=$venv/poetry-cache" >> "$GITHUB_ENV"
+          echo "PRE_COMMIT_HOME=$venv/pre-commit" >> "$GITHUB_ENV"
+          "$venv/bin/python" - <<'PY'
+          import os, pathlib, sys, pip
+          temporary = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve()
+          assert pathlib.Path(sys.executable).absolute().is_relative_to(temporary)
+          assert pathlib.Path(pip.__file__).resolve().is_relative_to(temporary)
+          if os.environ.get("UV_PYTHON"):
+              expected = tuple(map(int, os.environ["UV_PYTHON"].split(".")))
+              assert sys.version_info[:len(expected)] == expected, sys.version
+              assert pathlib.Path(sys.executable).resolve().is_relative_to(temporary)
+              assert pathlib.Path(sys.base_prefix).resolve().is_relative_to(temporary)
+          print(sys.version, sys.executable)
+          PY
+
       - name: Install pre-commit
         run: pip install pre-commit==3.7.0
       - name: Run pre-commit hooks
@@ -58,12 +108,62 @@ jobs:
   # Check version consistency across documentation
   check-version-consistency:
     name: Check version consistency
-    runs-on: blacksmith-4vcpu-ubuntu-2204
+    runs-on: ${{ fromJSON(vars.NEXA_PUBLIC_SELF_HOSTED_RUNNER_ENABLED == 'true' && github.repository == 'NexA-LLC/OpenHands' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && '["self-hosted","macOS","ARM64","buildchan"]' || '["blacksmith-4vcpu-ubuntu-2204"]') }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up python
-        uses: useblacksmith/setup-python@v6
+        if: runner.os != 'macOS' || runner.arch != 'ARM64'
+        uses: actions/setup-python@v5
         with:
           python-version: 3.12
+
+      - name: Set up python
+        if: runner.os == 'macOS' && runner.arch == 'ARM64'
+        uses: astral-sh/setup-uv@94527f2e458b27549849d47d273a16bec83a01e9 # v7
+        with:
+          version: '0.13.1'
+          checksum: cfe454573412ff7380d15fc7dae5997ab53ffce72fce0a78e91ddbc84001acd2
+          python-version: "3.12"
+          enable-cache: false
+          cache-local-path: ${{ runner.temp }}/uv-cache-${{ github.job }}
+          tool-dir: ${{ runner.temp }}/uv-tools-${{ github.job }}
+          tool-bin-dir: ${{ runner.temp }}/uv-bin-${{ github.job }}
+        env:
+          UV_PYTHON_INSTALL_DIR: ${{ runner.temp }}/uv-python-${{ github.job }}
+
+      - name: Create isolated Python environment
+        run: |
+          venv="$(mktemp -d "$RUNNER_TEMP/openhands-ci.XXXXXX")"
+          export PIP_CACHE_DIR="$RUNNER_TEMP/pip-cache-$GITHUB_JOB"
+          echo "PIP_CACHE_DIR=$PIP_CACHE_DIR" >> "$GITHUB_ENV"
+          if [[ "$RUNNER_OS/$RUNNER_ARCH" == "macOS/ARM64" ]]; then
+            export UV_PYTHON_INSTALL_DIR="$RUNNER_TEMP/uv-python-$GITHUB_JOB"
+            export UV_PYTHON_BIN_DIR="$RUNNER_TEMP/uv-python-bin-$GITHUB_JOB"
+            export UV_CACHE_DIR="$RUNNER_TEMP/uv-cache-$GITHUB_JOB"
+            echo "UV_PYTHON_INSTALL_DIR=$UV_PYTHON_INSTALL_DIR" >> "$GITHUB_ENV"
+            echo "UV_PYTHON_BIN_DIR=$UV_PYTHON_BIN_DIR" >> "$GITHUB_ENV"
+            echo "UV_CACHE_DIR=$UV_CACHE_DIR" >> "$GITHUB_ENV"
+            uv venv --no-config --managed-python --python "$UV_PYTHON" --seed "$venv"
+          else
+            python -m venv "$venv"
+          fi
+          echo "$venv/bin" >> "$GITHUB_PATH"
+          echo "VIRTUAL_ENV=$venv" >> "$GITHUB_ENV"
+          echo "POETRY_CONFIG_DIR=$venv/poetry-config" >> "$GITHUB_ENV"
+          echo "POETRY_CACHE_DIR=$venv/poetry-cache" >> "$GITHUB_ENV"
+          echo "PRE_COMMIT_HOME=$venv/pre-commit" >> "$GITHUB_ENV"
+          "$venv/bin/python" - <<'PY'
+          import os, pathlib, sys, pip
+          temporary = pathlib.Path(os.environ["RUNNER_TEMP"]).resolve()
+          assert pathlib.Path(sys.executable).absolute().is_relative_to(temporary)
+          assert pathlib.Path(pip.__file__).resolve().is_relative_to(temporary)
+          if os.environ.get("UV_PYTHON"):
+              expected = tuple(map(int, os.environ["UV_PYTHON"].split(".")))
+              assert sys.version_info[:len(expected)] == expected, sys.version
+              assert pathlib.Path(sys.executable).resolve().is_relative_to(temporary)
+              assert pathlib.Path(sys.base_prefix).resolve().is_relative_to(temporary)
+          print(sys.version, sys.executable)
+          PY
+
       - name: Run version consistency check
         run: .github/scripts/check_version_consistency.py
