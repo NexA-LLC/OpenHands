@@ -21,7 +21,7 @@ jobs:
   # Run frontend unit tests
   fe-test:
     name: FE Unit Tests
-    runs-on: ${{ fromJSON(github.repository == 'NexA-LLC/OpenHands' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && '["self-hosted","macOS","ARM64","buildchan"]' || '["blacksmith-4vcpu-ubuntu-2204"]') }}
+    runs-on: ${{ fromJSON(vars.NEXA_PUBLIC_SELF_HOSTED_RUNNER_ENABLED == 'true' && github.repository == 'NexA-LLC/OpenHands' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && '["self-hosted","macOS","ARM64","buildchan"]' || '["blacksmith-4vcpu-ubuntu-2204"]') }}
     strategy:
       matrix:
         node-version: [22]

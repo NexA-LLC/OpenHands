@@ -1,12 +1,20 @@
 # NexA fork runner policy
 
+Public self-hosted execution is prepared but off by default. The buildman6
+Default runner group currently excludes public repositories. Enabling it
+requires both public-repository runner access and the repository/organization
+variable `NEXA_PUBLIC_SELF_HOSTED_RUNNER_ENABLED` set to `true`. This PR changes
+neither setting. With the variable unset or false, jobs keep the original
+Blacksmith Linux runner. The existing trusted-event checks still apply after
+opt-in; enabling the variable never grants fork PRs access to the private Mac.
+
 Only `push` and `workflow_dispatch` events in `NexA-LLC/OpenHands` may select
 `[self-hosted, macOS, ARM64, buildchan]`, currently buildman6. All pull requests,
 including same-repository PRs, retain the existing Blacksmith Linux fallback.
 No issue/comment event is eligible for the private runner.
 
-The portable frontend build/coverage and frontend/Python/version lint jobs move
-for trusted events. Node 22, Python 3.12, pre-commit 3.7.0, and existing checks
+The portable frontend build/coverage and frontend/Python/version lint jobs can
+move for trusted events after opt-in. Node 22, Python 3.12, pre-commit 3.7.0, and existing checks
 remain. The frontend Node matrix's single value is written as `[22]` to repair
 the inherited invalid scalar matrix. Official setup-node/setup-python actions
 replace provider-specific setup actions. Python/hooks use a fresh job-temp
